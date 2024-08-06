@@ -22,40 +22,54 @@ builder.Logging.ClearProviders().AddSerilog();
 
 builder.Host.UseSerilog();
 
-builder.Services.AddInfrastructureServices();
-builder.Services.AddRedisService(builder.Configuration);
-
-builder.Services.AddJwtAuthentication(builder.Configuration);
-
-builder.Services.AddConfigureMediatR();
-builder.Services.AddConfigureAutoMapper();
-
-//Configure Options and SQL => Remember mapcarter
-builder.Services.AddInterceptorDbContext();
-builder.Services.ConfigureSqlServerRetryOptions(builder.Configuration.GetSection(nameof(SqlServerRetryOptions)));
-builder.Services.AddSqlServerConfiguration();
-builder.Services.AddRepositoryBaseConfiguration();
-
-
-//Add Middleware => Remember using middleware
-builder.Services.AddTransient<ExceptionHandlingMiddleware>();
-
 //Add Carter module
 builder.Services.AddCarter();
+
+///=> Use in case for ControllerApi difine in DistributedSystem.Presentation
+//builder.Services.AddControllers().AddApplicationPart(DistributedSystem.Presentation.AssemblyReference.Assemblu());
 
 //Add Swgger
 builder.Services.AddSwaggerGenNewtonsoftSupport()
     .AddFluentValidationRulesToSwagger()
     .AddEndpointsApiExplorer()
-    .AddSwagger();
+    .AddSwaggerAPI();
 
+//Configuration api version
 builder.Services.AddApiVersioning(options => options.ReportApiVersions = true)
-    .AddApiExplorer(options => {
+    .AddApiExplorer(options =>
+    {
         options.GroupNameFormat = "'v'VVV";
         options.SubstituteApiVersionInUrl = true;
     });
 
+//Configure JWT
+builder.Services.AddJwtAuthenticationAPI(builder.Configuration);
 
+builder.Services.AddServicesInfrastructure();
+builder.Services.AddRedisInfrastructure(builder.Configuration);
+builder.Services.ConfiguretionServiceInfrastructure(builder.Configuration);
+
+//configure MediaR
+builder.Services.AddConfigureMediatRApplication();
+
+//configure AutoMapper
+builder.Services.AddConfigureAutoMapperApplication();
+
+//Configure masstransit rabbitmq
+builder.Services.AddMasstransitRabbitMQInfrastructure(builder.Configuration);
+
+//
+builder.Services.AddQuartzInfrastructure();
+builder.Services.AddMediatRInfrastructure();
+
+//Configure Options and SQL => Remember mapcarter
+builder.Services.AddInterceptorPersistence();
+builder.Services.ConfigureSqlServerRetryOptionsPersistence(builder.Configuration.GetSection(nameof(SqlServerRetryOptions)));
+builder.Services.AddSqlServerPersistence();
+builder.Services.AddRepositoryPersistence();
+
+//Add Middleware => Remember using middleware
+builder.Services.AddTransient<ExceptionHandlingMiddleware>();
 
 var app = builder.Build();
 
@@ -68,25 +82,30 @@ app.UseAuthentication();
 
 app.UseAuthorization();
 
+//app.MapControllers(); //use in case for ControllerApi
+
 app.MapCarter();
 
 
-
-
 //Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment() || builder.Environment.IsStaging()) {
-    app.ConfigureSwagger();
+if (app.Environment.IsDevelopment() || builder.Environment.IsStaging())
+{
+    app.UseSwaggerAPI();
 }
 
 
-try {
+try
+{
     await app.RunAsync();
     Log.Information("Stopped cleanly");
 }
-catch(Exception ex) {
+catch (Exception ex)
+{
     Log.Fatal(ex, "An unhandled exception occured during bootstrapping");
     await app.StopAsync();
-} finally {
+}
+finally
+{
     Log.CloseAndFlush();
     await app.DisposeAsync();
 }
